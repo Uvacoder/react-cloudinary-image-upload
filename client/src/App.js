@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Dropzone from "react-dropzone";
-import MagicGrid from "magic-grid";
 import "./App.css";
 
 export default function App() {
   const [images, setImages] = useState([]);
   const [files, setFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [loadingImages, setLoadingImages] = useState(false);
 
   useEffect(() => {
     getImages();
@@ -14,14 +14,17 @@ export default function App() {
 
   const getImages = async () => {
     try {
+      setLoadingImages(true);
       const res = await fetch("http://localhost:4000/images");
       if (!res.ok) {
         throw new Error();
       }
       const data = await res.json();
       setImages(data.resources);
+      setLoadingImages(false);
     } catch (err) {
       console.error("Error getting uploaded images", err.message);
+      setLoadingImages(false);
     }
   };
 
@@ -40,41 +43,26 @@ export default function App() {
     files.forEach((file, i) => {
       imageData.set(i, file);
     });
-    setUploading(true);
+    setUploadingImage(true);
     const res = await fetch("http://localhost:4000/upload", {
       method: "POST",
       body: imageData
     });
-    const data = await res.json();
-    setUploading(false);
-    console.log(data);
+    const uploadedImages = await res.json();
+    const newImages = [...uploadedImages, ...images];
+    setImages(newImages);
+    setUploadingImage(false);
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        flexDirection: "column",
-        alignItems: "center"
-      }}
-    >
-      <ListImages images={images} />
+    <div className="container">
       <Dropzone onDrop={onDrop}>
         {({ getRootProps, getInputProps, isDragActive }) => {
           return (
             <div {...getRootProps()}>
               <input {...getInputProps()} />
               {isDragActive ? (
-                <p
-                  style={{
-                    fontWeight: "bold",
-                    border: "3px dashed red",
-                    padding: "0.2em"
-                  }}
-                >
-                  Drop image here
-                </p>
+                <p className="drag-active">Drop image here</p>
               ) : (
                 <p>Drop your image here, or click to select image for upload</p>
               )}
@@ -84,40 +72,49 @@ export default function App() {
       </Dropzone>
       <ListFiles files={files} />
       {files.length > 0 && (
-        <button onClick={uploadFiles}>
-          {uploading ? "Uploading..." : "Upload"}
-        </button>
+        <div className="align-center">
+          <button
+            className="bttn-unite bttn-md bttn-primary"
+            onClick={uploadFiles}
+          >
+            {uploadingImage ? "Uploading..." : "Upload"}
+          </button>
+          <button
+            className="bttn-unite bttn-md bttn-danger"
+            onClick={() => setFiles([])}
+          >
+            Remove
+          </button>
+        </div>
       )}
+      <ListImages images={images} loadingImages={loadingImages} />
     </div>
   );
 }
 
-const ListImages = ({ images }) =>
-  images.map(image => (
-    <img style={{ width: "400px" }} key={image.id} src={image.url} />
-  ));
+const ListImages = ({ images, loadingImages }) =>
+  loadingImages ? (
+    <div>Loading images...</div>
+  ) : (
+    <>
+      <h2>Uploaded Images</h2>
+      <div className="image-container">
+        {images.map((image, i) => (
+          <img
+            className="image-uploaded"
+            alt="Uploaded file"
+            key={i}
+            src={image.url}
+          />
+        ))}
+      </div>
+    </>
+  );
 
 const ListFiles = ({ files }) =>
   files.map(file => (
-    <div
-      key={file.name}
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        flexDirection: "column",
-        alignItems: "center"
-      }}
-    >
-      <img
-        style={{
-          borderRadius: "50%",
-          width: "100px",
-          height: "100px",
-          objectFit: "cover"
-        }}
-        src={file.preview}
-        alt="File to upload"
-      />
+    <div key={file.name} className="container">
+      <img className="image-preview" src={file.preview} alt="File to upload" />
       <p>
         {file.name} - {file.size} bytes
       </p>
